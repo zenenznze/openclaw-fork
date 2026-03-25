@@ -223,6 +223,33 @@ describe("runWithModelFallback", () => {
     expect(result.attempts[0].reason).toBe("unknown");
   });
 
+  it("falls back when validateResult rejects an empty successful result", async () => {
+    const cfg = makeCfg();
+    const run = vi.fn().mockResolvedValueOnce("empty").mockResolvedValueOnce("ok");
+
+    const result = await runWithModelFallback({
+      cfg,
+      provider: "openai",
+      model: "gpt-4.1-mini",
+      run,
+      validateResult: ({ result, provider, model }) => {
+        if (result === "empty") {
+          throw new Error(`Empty successful model response from ${provider}/${model}`);
+        }
+      },
+    });
+
+    expect(result.result).toBe("ok");
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(result.attempts).toHaveLength(1);
+    expect(result.attempts[0]).toMatchObject({
+      provider: "openai",
+      model: "gpt-4.1-mini",
+      reason: "unknown",
+    });
+    expect(result.attempts[0]?.error).toContain("Empty successful model response");
+  });
+
   it("passes original unknown errors to onError during fallback", async () => {
     const cfg = makeCfg();
     const unknownError = new Error("provider misbehaved");

@@ -12,6 +12,7 @@ import { getCliSessionId, setCliSessionId } from "../../agents/cli-session.js";
 import { lookupContextTokens } from "../../agents/context.js";
 import { resolveCronStyleNow } from "../../agents/current-time.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../agents/defaults.js";
+import { ensureEmbeddedPiRunResultHasRenderableOutput } from "../../agents/embedded-run-result.js";
 import { resolveFastModeState } from "../../agents/fast-mode.js";
 import { resolveNestedAgentLane } from "../../agents/lanes.js";
 import { loadModelCatalog } from "../../agents/model-catalog.js";
@@ -457,6 +458,9 @@ export async function runCronIsolatedAgentTurn(params: {
         agentDir,
         fallbacksOverride:
           payloadFallbacks ?? resolveAgentModelFallbacksOverride(params.cfg, agentId),
+        validateResult: ({ result, provider, model }) => {
+          ensureEmbeddedPiRunResultHasRenderableOutput({ result, provider, model });
+        },
         run: async (providerOverride, modelOverride, runOptions) => {
           if (abortSignal?.aborted) {
             throw new Error(abortReason());

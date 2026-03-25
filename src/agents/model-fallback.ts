@@ -49,6 +49,12 @@ type ModelFallbackRunFn<T> = (
   options?: ModelFallbackRunOptions,
 ) => Promise<T>;
 
+type ModelFallbackResultValidator<T> = (params: {
+  result: T;
+  provider: string;
+  model: string;
+}) => void | Promise<void>;
+
 /**
  * Fallback abort check. Only treats explicit AbortError names as user aborts.
  * Message-based checks (e.g., "aborted") can mask timeouts and skip fallback.
@@ -135,11 +141,19 @@ async function runFallbackCandidate<T>(params: {
   provider: string;
   model: string;
   options?: ModelFallbackRunOptions;
+  validateResult?: ModelFallbackResultValidator<T>;
 }): Promise<{ ok: true; result: T } | { ok: false; error: unknown }> {
   try {
     const result = params.options
       ? await params.run(params.provider, params.model, params.options)
       : await params.run(params.provider, params.model);
+    if (params.validateResult) {
+      await params.validateResult({
+        result,
+        provider: params.provider,
+        model: params.model,
+      });
+    }
     return {
       ok: true,
       result,
@@ -164,12 +178,14 @@ async function runFallbackAttempt<T>(params: {
   model: string;
   attempts: FallbackAttempt[];
   options?: ModelFallbackRunOptions;
+  validateResult?: ModelFallbackResultValidator<T>;
 }): Promise<{ success: ModelFallbackRunResult<T> } | { error: unknown }> {
   const runResult = await runFallbackCandidate({
     run: params.run,
     provider: params.provider,
     model: params.model,
     options: params.options,
+    validateResult: params.validateResult,
   });
   if (runResult.ok) {
     return {
@@ -522,6 +538,7 @@ export async function runWithModelFallback<T>(params: {
   /** Optional explicit fallbacks list; when provided (even empty), replaces agents.defaults.model.fallbacks. */
   fallbacksOverride?: string[];
   run: ModelFallbackRunFn<T>;
+  validateResult?: ModelFallbackResultValidator<T>;
   onError?: ModelFallbackErrorHandler;
 }): Promise<ModelFallbackRunResult<T>> {
   const candidates = resolveFallbackCandidates({
@@ -660,6 +677,7 @@ export async function runWithModelFallback<T>(params: {
       ...candidate,
       attempts,
       options: runOptions,
+      validateResult: params.validateResult,
     });
     if ("success" in attemptRun) {
       if (i > 0 || attempts.length > 0 || attemptedDuringCooldown) {

@@ -72,6 +72,7 @@ import { updateSessionStoreAfterAgentRun } from "./command/session-store.js";
 import { resolveSession } from "./command/session.js";
 import type { AgentCommandIngressOpts, AgentCommandOpts } from "./command/types.js";
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "./defaults.js";
+import { ensureEmbeddedPiRunResultHasRenderableOutput } from "./embedded-run-result.js";
 import { FailoverError } from "./failover-error.js";
 import { formatAgentInternalEventsForPrompt } from "./internal-events.js";
 import { AGENT_LANE_SUBAGENT } from "./lanes.js";
@@ -1177,6 +1178,9 @@ async function agentCommandInternal(
         runId,
         agentDir,
         fallbacksOverride: effectiveFallbacksOverride,
+        validateResult: ({ result, provider, model }) => {
+          ensureEmbeddedPiRunResultHasRenderableOutput({ result, provider, model });
+        },
         run: (providerOverride, modelOverride, runOptions) => {
           const isFallbackRetry = fallbackAttemptIndex > 0;
           fallbackAttemptIndex += 1;
