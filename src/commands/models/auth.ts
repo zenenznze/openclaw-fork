@@ -270,6 +270,7 @@ async function runProviderAuthMethod(params: {
   method: ProviderAuthMethod;
   runtime: RuntimeEnv;
   prompter: ReturnType<typeof createClackPrompter>;
+  profileName?: string;
   setDefault?: boolean;
 }) {
   await clearStaleProfileLockouts(params.provider.id, params.agentDir);
@@ -280,6 +281,7 @@ async function runProviderAuthMethod(params: {
     workspaceDir: params.workspaceDir,
     prompter: params.prompter,
     runtime: params.runtime,
+    opts: params.profileName ? { profileName: params.profileName } : undefined,
     allowSecretRefPrompt: false,
     isRemote: isRemoteEnvironment(),
     openUrl: async (url) => {
@@ -496,6 +498,7 @@ export async function modelsAuthAddCommand(_opts: Record<string, never>, runtime
 type LoginOptions = {
   provider?: string;
   method?: string;
+  profileName?: string;
   setDefault?: boolean;
   yes?: boolean;
 };
@@ -584,6 +587,7 @@ export async function modelsAuthLoginCommand(opts: LoginOptions, runtime: Runtim
     method: chosenMethod,
     runtime,
     prompter,
+    profileName: opts.profileName,
     setDefault: opts.setDefault,
   });
 }

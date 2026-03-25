@@ -229,6 +229,18 @@ describe("modelsAuthLoginCommand", () => {
     expect(runtime.log).toHaveBeenCalledWith("Default model set to openai-codex/gpt-5.4");
   });
 
+  it("passes profileName override through to the provider auth flow", async () => {
+    const runtime = createRuntime();
+
+    await modelsAuthLoginCommand({ provider: "openai-codex", profileName: "codex2" }, runtime);
+
+    expect(runProviderAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opts: { profileName: "codex2" },
+      }),
+    );
+  });
+
   it("clears stale auth lockouts before attempting openai-codex login", async () => {
     const runtime = createRuntime();
     const fakeStore = {

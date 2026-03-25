@@ -307,6 +307,7 @@ export function registerModelsCli(program: Command) {
     .description("Run a provider plugin auth flow (OAuth/API key)")
     .option("--provider <id>", "Provider id registered by a plugin")
     .option("--method <id>", "Provider auth method id")
+    .option("--profile-name <name>", "Override the auth profile name written by the provider flow")
     .option("--set-default", "Apply the provider's default model recommendation", false)
     .action(async (opts) => {
       await runModelsCommand(async () => {
@@ -314,6 +315,7 @@ export function registerModelsCli(program: Command) {
           {
             provider: opts.provider as string | undefined,
             method: opts.method as string | undefined,
+            profileName: opts.profileName as string | undefined,
             setDefault: Boolean(opts.setDefault),
           },
           defaultRuntime,

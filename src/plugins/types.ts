@@ -52,6 +52,7 @@ export type ProviderAuthOptionBag = {
   token?: string;
   tokenProvider?: string;
   secretInputMode?: SecretInputMode;
+  profileName?: string;
   [key: string]: unknown;
 };
 

@@ -189,6 +189,11 @@ async function runOpenAICodexOAuth(ctx: ProviderAuthContext) {
     email: typeof creds.email === "string" ? creds.email : undefined,
   });
 
+  const requestedProfileName =
+    typeof ctx.opts?.profileName === "string" && ctx.opts.profileName.trim().length > 0
+      ? ctx.opts.profileName.trim()
+      : undefined;
+
   return buildOauthProviderAuthResult({
     providerId: PROVIDER_ID,
     defaultModel: OPENAI_CODEX_DEFAULT_MODEL,
@@ -196,7 +201,7 @@ async function runOpenAICodexOAuth(ctx: ProviderAuthContext) {
     refresh: creds.refresh,
     expires: creds.expires,
     email: identity.email,
-    profileName: identity.profileName,
+    profileName: requestedProfileName ?? identity.profileName,
   });
 }
 
