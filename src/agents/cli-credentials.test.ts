@@ -290,13 +290,15 @@ describe("cli credentials", () => {
       throw new Error("not found");
     });
 
+    const accessToken = `${Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url")}.${Buffer.from(JSON.stringify({ exp: expSeconds, "https://api.openai.com/profile": { email: "jwt-user@example.com" } })).toString("base64url")}.signature`;
+
     const authPath = path.join(tempHome, "auth.json");
     fs.mkdirSync(tempHome, { recursive: true, mode: 0o700 });
     fs.writeFileSync(
       authPath,
       JSON.stringify({
         tokens: {
-          access_token: createJwtWithExp(expSeconds),
+          access_token: accessToken,
           refresh_token: "file-refresh",
         },
       }),
@@ -306,10 +308,11 @@ describe("cli credentials", () => {
     const creds = readCodexCliCredentials({ execSync: execSyncMock });
 
     expect(creds).toMatchObject({
-      access: createJwtWithExp(expSeconds),
+      access: accessToken,
       refresh: "file-refresh",
       provider: "openai-codex",
       expires: expSeconds * 1000,
+      email: "jwt-user@example.com",
     });
   });
 

@@ -41,7 +41,7 @@ function getProviderCases() {
   return [
     {
       label: "Codex",
-      profileId: OPENAI_CODEX_DEFAULT_PROFILE_ID,
+      profileId: "openai-codex:user@example.com",
       provider: "openai-codex" as const,
       readMock: mocks.readCodexCliCredentialsCached,
       legacyProfileId: CODEX_CLI_PROFILE_ID,
@@ -136,6 +136,7 @@ describe("syncExternalCliCredentials", () => {
           refresh: `${current.provider}-refresh-token`,
           expires,
           accountId: "acct_123",
+          email: "user@example.com",
         }),
       );
 
@@ -154,6 +155,7 @@ describe("syncExternalCliCredentials", () => {
         refresh: `${current.provider}-refresh-token`,
         expires,
         accountId: "acct_123",
+        email: "user@example.com",
       });
       if (current.legacyProfileId) {
         expect(store.profiles[current.legacyProfileId]).toBeUndefined();
@@ -161,9 +163,10 @@ describe("syncExternalCliCredentials", () => {
     },
   );
 
-  it("refreshes stored Codex expiry from external CLI even when the cached profile looks fresh", () => {
+  it("refreshes stored Codex expiry in the resolved identity profile even when the cached profile looks fresh", () => {
     const staleExpiry = Date.now() + 30 * 60_000;
     const freshExpiry = Date.now() + 5 * 24 * 60 * 60_000;
+    const profileId = `openai-codex:id-${Buffer.from("acct_456").toString("base64url")}`;
     mocks.readCodexCliCredentialsCached.mockReturnValue(
       makeOAuthCredential({
         provider: "openai-codex",
@@ -175,7 +178,7 @@ describe("syncExternalCliCredentials", () => {
     );
 
     const store = makeStore(
-      OPENAI_CODEX_DEFAULT_PROFILE_ID,
+      profileId,
       makeOAuthCredential({
         provider: "openai-codex",
         access: "old-access-token",
@@ -188,11 +191,12 @@ describe("syncExternalCliCredentials", () => {
     const mutated = syncExternalCliCredentials(store);
 
     expect(mutated).toBe(true);
-    expect(store.profiles[OPENAI_CODEX_DEFAULT_PROFILE_ID]).toMatchObject({
+    expect(store.profiles[profileId]).toMatchObject({
       access: "new-access-token",
       refresh: "new-refresh-token",
       expires: freshExpiry,
     });
+    expect(store.profiles[OPENAI_CODEX_DEFAULT_PROFILE_ID]).toBeUndefined();
   });
 
   it.each([{ providerLabel: "Codex" }, { providerLabel: "Qwen" }, { providerLabel: "MiniMax" }])(
@@ -210,6 +214,7 @@ describe("syncExternalCliCredentials", () => {
           refresh: `stale-${current.provider}-refresh-token`,
           expires: staleExpiry,
           accountId: "acct_789",
+          ...(current.provider === "openai-codex" ? { email: "user@example.com" } : {}),
         }),
       );
 
@@ -221,6 +226,7 @@ describe("syncExternalCliCredentials", () => {
           refresh: `fresh-${current.provider}-refresh-token`,
           expires: freshExpiry,
           accountId: "acct_789",
+          ...(current.provider === "openai-codex" ? { email: "user@example.com" } : {}),
         }),
       );
 

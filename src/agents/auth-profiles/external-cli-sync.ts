@@ -3,6 +3,7 @@ import {
   readQwenCliCredentialsCached,
   readMiniMaxCliCredentialsCached,
 } from "../cli-credentials.js";
+import { resolveCodexAuthIdentity } from "../codex-auth-identity.js";
 import {
   EXTERNAL_CLI_SYNC_TTL_MS,
   OPENAI_CODEX_DEFAULT_PROFILE_ID,
@@ -10,6 +11,7 @@ import {
   MINIMAX_CLI_PROFILE_ID,
   log,
 } from "./constants.js";
+import { buildAuthProfileId } from "./identity.js";
 import type { AuthProfileStore, OAuthCredential } from "./types.js";
 
 type ExternalCliSyncOptions = {
@@ -17,9 +19,10 @@ type ExternalCliSyncOptions = {
 };
 
 type ExternalCliSyncProvider = {
-  profileId: string;
+  profileId?: string;
   provider: string;
   readCredentials: () => OAuthCredential | null;
+  resolveProfileId?: (creds: OAuthCredential) => string;
 };
 
 function areOAuthCredentialsEquivalent(
@@ -81,9 +84,19 @@ const EXTERNAL_CLI_SYNC_PROVIDERS: ExternalCliSyncProvider[] = [
     readCredentials: () => readMiniMaxCliCredentialsCached({ ttlMs: EXTERNAL_CLI_SYNC_TTL_MS }),
   },
   {
-    profileId: OPENAI_CODEX_DEFAULT_PROFILE_ID,
     provider: "openai-codex",
     readCredentials: () => readCodexCliCredentialsCached({ ttlMs: EXTERNAL_CLI_SYNC_TTL_MS }),
+    resolveProfileId: (creds) => {
+      const identity = resolveCodexAuthIdentity({
+        accessToken: creds.access,
+        email: creds.email,
+        accountId: creds.accountId,
+      });
+      return buildAuthProfileId({
+        providerId: "openai-codex",
+        profileName: identity.profileName,
+      });
+    },
   },
 ];
 
@@ -93,12 +106,16 @@ function syncExternalCliCredentialsForProvider(
   providerConfig: ExternalCliSyncProvider,
   options: ExternalCliSyncOptions,
 ): boolean {
-  const { profileId, provider, readCredentials } = providerConfig;
-  const existing = store.profiles[profileId];
+  const { provider, readCredentials } = providerConfig;
   const creds = readCredentials();
   if (!creds) {
     return false;
   }
+  const profileId =
+    providerConfig.resolveProfileId?.(creds) ??
+    providerConfig.profileId ??
+    OPENAI_CODEX_DEFAULT_PROFILE_ID;
+  const existing = store.profiles[profileId];
 
   const existingOAuth = existing?.type === "oauth" ? existing : undefined;
   if (!shouldReplaceStoredOAuthCredential(existingOAuth, creds)) {
