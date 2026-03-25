@@ -1,0 +1,54 @@
+name: Upstream sync PR
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out fork main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "zenenznze-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Add upstream and fetch
+        run: |
+          git remote add upstream https://github.com/openclaw/openclaw.git || git remote set-url upstream https://github.com/openclaw/openclaw.git
+          git fetch upstream main --prune
+          git fetch origin main --prune
+
+      - name: Prepare sync branch
+        run: |
+          git checkout -B chore/sync-upstream origin/main
+          git merge --no-ff --no-edit upstream/main
+
+      - name: Create or update sync PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/sync-upstream
+          base: main
+          title: 'chore: sync upstream main'
+          commit-message: 'chore: sync upstream main'
+          body: |
+            Automated upstream sync PR.
+
+            - source: `openclaw/openclaw:main`
+            - target: `zenenznze/openclaw-fork:main`
+            - strategy: scheduled merge into a reviewable PR before landing
+
+            If this PR shows conflicts or CI regressions, resolve them manually before merge.
+          delete-branch: false
