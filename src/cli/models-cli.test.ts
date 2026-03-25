@@ -15,6 +15,7 @@ vi.mock("../commands/models.js", () => ({
   modelsAuthLoginCommand,
   modelsAuthOrderClearCommand: noopAsync,
   modelsAuthOrderGetCommand: noopAsync,
+  modelsAuthOrderPreferCommand: noopAsync,
   modelsAuthOrderSetCommand: noopAsync,
   modelsAuthPasteTokenCommand: noopAsync,
   modelsAuthSetupTokenCommand: noopAsync,
@@ -93,6 +94,15 @@ describe("models cli", () => {
       expect.objectContaining({ agent: "poe" }),
       expect.any(Object),
     );
+  });
+
+  it("registers auth order prefer command", async () => {
+    const program = createProgram();
+    const models = program.commands.find((cmd) => cmd.name() === "models");
+    const auth = models?.commands.find((cmd) => cmd.name() === "auth");
+    const order = auth?.commands.find((cmd) => cmd.name() === "order");
+    const prefer = order?.commands.find((cmd) => cmd.name() === "prefer");
+    expect(prefer).toBeTruthy();
   });
 
   it("shows help for models auth without error exit", async () => {

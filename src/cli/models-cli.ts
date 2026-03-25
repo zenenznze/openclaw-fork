@@ -7,6 +7,7 @@ import {
   modelsAuthLoginCommand,
   modelsAuthOrderClearCommand,
   modelsAuthOrderGetCommand,
+  modelsAuthOrderPreferCommand,
   modelsAuthOrderSetCommand,
   modelsAuthPasteTokenCommand,
   modelsAuthSetupTokenCommand,
@@ -436,6 +437,27 @@ export function registerModelsCli(program: Command) {
           {
             provider: opts.provider as string,
             agent,
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  order
+    .command("prefer")
+    .description("Set a single preferred auth profile for a provider")
+    .requiredOption("--provider <name>", "Provider id (e.g. openai-codex)")
+    .option("--agent <id>", "Agent id (default: configured default agent)")
+    .argument("<profileId>", "Auth profile id (e.g. openai-codex:codex2)")
+    .action(async (profileId: string, opts, command) => {
+      const agent =
+        resolveOptionFromCommand<string>(command, "agent") ?? (opts.agent as string | undefined);
+      await runModelsCommand(async () => {
+        await modelsAuthOrderPreferCommand(
+          {
+            provider: opts.provider as string,
+            agent,
+            profileId,
           },
           defaultRuntime,
         );

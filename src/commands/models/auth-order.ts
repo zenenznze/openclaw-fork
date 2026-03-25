@@ -89,6 +89,26 @@ export async function modelsAuthOrderClearCommand(
   runtime.log("Cleared per-agent order override.");
 }
 
+function validateRequestedProfiles(params: {
+  store: AuthProfileStore;
+  provider: string;
+  agentDir: string;
+  requested: string[];
+}) {
+  const providerKey = params.provider;
+  for (const profileId of params.requested) {
+    const cred = params.store.profiles[profileId];
+    if (!cred) {
+      throw new Error(`Auth profile "${profileId}" not found in ${params.agentDir}.`);
+    }
+    if (normalizeProviderId(cred.provider) !== providerKey) {
+      throw new Error(
+        `Auth profile "${profileId}" is for ${cred.provider}, not ${params.provider}.`,
+      );
+    }
+  }
+}
+
 export async function modelsAuthOrderSetCommand(
   opts: { provider: string; agent?: string; order: string[] },
   runtime: RuntimeEnv,
@@ -98,21 +118,17 @@ export async function modelsAuthOrderSetCommand(
   const store = ensureAuthProfileStore(agentDir, {
     allowKeychainPrompt: false,
   });
-  const providerKey = provider;
   const requested = normalizeStringEntries(opts.order ?? []);
   if (requested.length === 0) {
     throw new Error("Missing profile ids. Provide one or more profile ids.");
   }
 
-  for (const profileId of requested) {
-    const cred = store.profiles[profileId];
-    if (!cred) {
-      throw new Error(`Auth profile "${profileId}" not found in ${agentDir}.`);
-    }
-    if (normalizeProviderId(cred.provider) !== providerKey) {
-      throw new Error(`Auth profile "${profileId}" is for ${cred.provider}, not ${provider}.`);
-    }
-  }
+  validateRequestedProfiles({
+    store,
+    provider,
+    agentDir,
+    requested,
+  });
 
   const updated = await setAuthProfileOrder({
     agentDir,
@@ -125,5 +141,41 @@ export async function modelsAuthOrderSetCommand(
 
   runtime.log(`Agent: ${agentId}`);
   runtime.log(`Provider: ${provider}`);
+  runtime.log(`Order override: ${describeOrder(updated, provider).join(", ")}`);
+}
+
+export async function modelsAuthOrderPreferCommand(
+  opts: { provider: string; agent?: string; profileId: string },
+  runtime: RuntimeEnv,
+) {
+  const { agentId, agentDir, provider } = await resolveAuthOrderContext(opts, runtime);
+  const profileId = opts.profileId?.trim();
+  if (!profileId) {
+    throw new Error("Missing profile id. Provide exactly one profile id.");
+  }
+
+  const store = ensureAuthProfileStore(agentDir, {
+    allowKeychainPrompt: false,
+  });
+
+  validateRequestedProfiles({
+    store,
+    provider,
+    agentDir,
+    requested: [profileId],
+  });
+
+  const updated = await setAuthProfileOrder({
+    agentDir,
+    provider,
+    order: [profileId],
+  });
+  if (!updated) {
+    throw new Error("Failed to update auth-profiles.json (lock busy?).");
+  }
+
+  runtime.log(`Agent: ${agentId}`);
+  runtime.log(`Provider: ${provider}`);
+  runtime.log(`Preferred auth profile: ${profileId}`);
   runtime.log(`Order override: ${describeOrder(updated, provider).join(", ")}`);
 }
