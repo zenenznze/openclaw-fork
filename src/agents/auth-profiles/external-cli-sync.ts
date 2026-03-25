@@ -89,8 +89,8 @@ const EXTERNAL_CLI_SYNC_PROVIDERS: ExternalCliSyncProvider[] = [
     resolveProfileId: (creds) => {
       const identity = resolveCodexAuthIdentity({
         accessToken: creds.access,
-        email: creds.email,
-        accountId: creds.accountId,
+        email: typeof creds.email === "string" ? creds.email : undefined,
+        accountId: typeof creds.accountId === "string" ? creds.accountId : undefined,
       });
       return buildAuthProfileId({
         providerId: "openai-codex",
