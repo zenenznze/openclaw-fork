@@ -13,6 +13,7 @@ export {
 export {
   modelsAuthOrderClearCommand,
   modelsAuthOrderGetCommand,
+  modelsAuthOrderPreferCommand,
   modelsAuthOrderSetCommand,
 } from "./models/auth-order.js";
 export {

@@ -7,6 +7,7 @@ import {
   modelsAuthLoginCommand,
   modelsAuthOrderClearCommand,
   modelsAuthOrderGetCommand,
+  modelsAuthOrderPreferCommand,
   modelsAuthOrderSetCommand,
   modelsAuthPasteTokenCommand,
   modelsAuthSetupTokenCommand,
@@ -295,7 +296,7 @@ export function registerModelsCli(program: Command) {
 
   auth
     .command("add")
-    .description("Interactive auth helper (setup-token or paste token)")
+    .description("Interactive auth helper (provider auth or paste token)")
     .action(async () => {
       await runModelsCommand(async () => {
         await modelsAuthAddCommand({}, defaultRuntime);
@@ -307,6 +308,7 @@ export function registerModelsCli(program: Command) {
     .description("Run a provider plugin auth flow (OAuth/API key)")
     .option("--provider <id>", "Provider id registered by a plugin")
     .option("--method <id>", "Provider auth method id")
+    .option("--profile-name <name>", "Override the auth profile name written by the provider flow")
     .option("--set-default", "Apply the provider's default model recommendation", false)
     .action(async (opts) => {
       await runModelsCommand(async () => {
@@ -314,6 +316,7 @@ export function registerModelsCli(program: Command) {
           {
             provider: opts.provider as string | undefined,
             method: opts.method as string | undefined,
+            profileName: opts.profileName as string | undefined,
             setDefault: Boolean(opts.setDefault),
           },
           defaultRuntime,
@@ -324,7 +327,7 @@ export function registerModelsCli(program: Command) {
   auth
     .command("setup-token")
     .description("Run a provider CLI to create/sync a token (TTY required)")
-    .option("--provider <name>", "Provider id (default: anthropic)")
+    .option("--provider <name>", "Provider id")
     .option("--yes", "Skip confirmation", false)
     .action(async (opts) => {
       await runModelsCommand(async () => {
@@ -381,7 +384,7 @@ export function registerModelsCli(program: Command) {
 
   order
     .command("get")
-    .description("Show per-agent auth order override (from auth-profiles.json)")
+    .description("Show per-agent auth order override (from auth-state.json)")
     .requiredOption("--provider <name>", "Provider id (e.g. anthropic)")
     .option("--agent <id>", "Agent id (default: configured default agent)")
     .option("--json", "Output JSON", false)
@@ -402,7 +405,7 @@ export function registerModelsCli(program: Command) {
 
   order
     .command("set")
-    .description("Set per-agent auth order override (locks rotation to this list)")
+    .description("Set per-agent auth order override (writes auth-state.json)")
     .requiredOption("--provider <name>", "Provider id (e.g. anthropic)")
     .option("--agent <id>", "Agent id (default: configured default agent)")
     .argument("<profileIds...>", "Auth profile ids (e.g. anthropic:default)")
@@ -434,6 +437,27 @@ export function registerModelsCli(program: Command) {
           {
             provider: opts.provider as string,
             agent,
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  order
+    .command("prefer")
+    .description("Set a single preferred auth profile for a provider")
+    .requiredOption("--provider <name>", "Provider id (e.g. openai-codex)")
+    .option("--agent <id>", "Agent id (default: configured default agent)")
+    .argument("<profileId>", "Auth profile id (e.g. openai-codex:codex2)")
+    .action(async (profileId: string, opts, command) => {
+      const agent =
+        resolveOptionFromCommand<string>(command, "agent") ?? (opts.agent as string | undefined);
+      await runModelsCommand(async () => {
+        await modelsAuthOrderPreferCommand(
+          {
+            provider: opts.provider as string,
+            agent,
+            profileId,
           },
           defaultRuntime,
         );

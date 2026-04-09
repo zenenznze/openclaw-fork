@@ -2,6 +2,7 @@ import { resolveAgentDir, resolveDefaultAgentId } from "../../agents/agent-scope
 import {
   type AuthProfileStore,
   ensureAuthProfileStore,
+  resolveAuthStatePathForDisplay,
   setAuthProfileOrder,
 } from "../../agents/auth-profiles.js";
 import { normalizeProviderId } from "../../agents/model-selection.js";
@@ -58,7 +59,7 @@ export async function modelsAuthOrderGetCommand(
       agentId,
       agentDir,
       provider,
-      authStorePath: shortenHomePath(`${agentDir}/auth-profiles.json`),
+      authStatePath: shortenHomePath(resolveAuthStatePathForDisplay(agentDir)),
       order: order.length > 0 ? order : null,
     });
     return;
@@ -66,7 +67,7 @@ export async function modelsAuthOrderGetCommand(
 
   runtime.log(`Agent: ${agentId}`);
   runtime.log(`Provider: ${provider}`);
-  runtime.log(`Auth file: ${shortenHomePath(`${agentDir}/auth-profiles.json`)}`);
+  runtime.log(`Auth state file: ${shortenHomePath(resolveAuthStatePathForDisplay(agentDir))}`);
   runtime.log(order.length > 0 ? `Order override: ${order.join(", ")}` : "Order override: (none)");
 }
 
@@ -81,12 +82,32 @@ export async function modelsAuthOrderClearCommand(
     order: null,
   });
   if (!updated) {
-    throw new Error("Failed to update auth-profiles.json (lock busy?).");
+    throw new Error("Failed to update auth-state.json (lock busy?).");
   }
 
   runtime.log(`Agent: ${agentId}`);
   runtime.log(`Provider: ${provider}`);
   runtime.log("Cleared per-agent order override.");
+}
+
+function validateRequestedProfiles(params: {
+  store: AuthProfileStore;
+  provider: string;
+  agentDir: string;
+  requested: string[];
+}) {
+  const providerKey = params.provider;
+  for (const profileId of params.requested) {
+    const cred = params.store.profiles[profileId];
+    if (!cred) {
+      throw new Error(`Auth profile "${profileId}" not found in ${params.agentDir}.`);
+    }
+    if (normalizeProviderId(cred.provider) !== providerKey) {
+      throw new Error(
+        `Auth profile "${profileId}" is for ${cred.provider}, not ${params.provider}.`,
+      );
+    }
+  }
 }
 
 export async function modelsAuthOrderSetCommand(
@@ -98,21 +119,17 @@ export async function modelsAuthOrderSetCommand(
   const store = ensureAuthProfileStore(agentDir, {
     allowKeychainPrompt: false,
   });
-  const providerKey = provider;
   const requested = normalizeStringEntries(opts.order ?? []);
   if (requested.length === 0) {
     throw new Error("Missing profile ids. Provide one or more profile ids.");
   }
 
-  for (const profileId of requested) {
-    const cred = store.profiles[profileId];
-    if (!cred) {
-      throw new Error(`Auth profile "${profileId}" not found in ${agentDir}.`);
-    }
-    if (normalizeProviderId(cred.provider) !== providerKey) {
-      throw new Error(`Auth profile "${profileId}" is for ${cred.provider}, not ${provider}.`);
-    }
-  }
+  validateRequestedProfiles({
+    store,
+    provider,
+    agentDir,
+    requested,
+  });
 
   const updated = await setAuthProfileOrder({
     agentDir,
@@ -120,10 +137,46 @@ export async function modelsAuthOrderSetCommand(
     order: requested,
   });
   if (!updated) {
+    throw new Error("Failed to update auth-state.json (lock busy?).");
+  }
+
+  runtime.log(`Agent: ${agentId}`);
+  runtime.log(`Provider: ${provider}`);
+  runtime.log(`Order override: ${describeOrder(updated, provider).join(", ")}`);
+}
+
+export async function modelsAuthOrderPreferCommand(
+  opts: { provider: string; agent?: string; profileId: string },
+  runtime: RuntimeEnv,
+) {
+  const { agentId, agentDir, provider } = await resolveAuthOrderContext(opts, runtime);
+  const profileId = opts.profileId?.trim();
+  if (!profileId) {
+    throw new Error("Missing profile id. Provide exactly one profile id.");
+  }
+
+  const store = ensureAuthProfileStore(agentDir, {
+    allowKeychainPrompt: false,
+  });
+
+  validateRequestedProfiles({
+    store,
+    provider,
+    agentDir,
+    requested: [profileId],
+  });
+
+  const updated = await setAuthProfileOrder({
+    agentDir,
+    provider,
+    order: [profileId],
+  });
+  if (!updated) {
     throw new Error("Failed to update auth-profiles.json (lock busy?).");
   }
 
   runtime.log(`Agent: ${agentId}`);
   runtime.log(`Provider: ${provider}`);
+  runtime.log(`Preferred auth profile: ${profileId}`);
   runtime.log(`Order override: ${describeOrder(updated, provider).join(", ")}`);
 }

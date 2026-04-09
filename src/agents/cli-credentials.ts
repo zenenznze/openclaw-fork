@@ -6,6 +6,7 @@ import type { OAuthCredentials, OAuthProvider } from "@mariozechner/pi-ai";
 import { loadJsonFile, saveJsonFile } from "../infra/json-file.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { resolveUserPath } from "../utils.js";
+import { resolveCodexAuthIdentity } from "./codex-auth-identity.js";
 
 const log = createSubsystemLogger("agents/auth-profiles");
 
@@ -551,13 +552,20 @@ export function readCodexCliCredentials(options?: {
   }
   const expires = decodeJwtExpiryMs(accessToken) ?? fallbackExpiry;
 
+  const accountId = typeof tokens.account_id === "string" ? tokens.account_id : undefined;
+  const identity = resolveCodexAuthIdentity({
+    accessToken,
+    accountId,
+  });
+
   return {
     type: "oauth",
     provider: "openai-codex" as OAuthProvider,
     access: accessToken,
     refresh: refreshToken,
     expires,
-    accountId: typeof tokens.account_id === "string" ? tokens.account_id : undefined,
+    accountId,
+    ...(identity.email ? { email: identity.email } : {}),
   };
 }
 
